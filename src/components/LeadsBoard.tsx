@@ -102,7 +102,7 @@ export function LeadsBoard({ refreshKey, localHistory, onOpenReport }: LeadsBoar
   if (!loaded || leads.length === 0) return null;
 
   return (
-    <section className="mt-10">
+    <section className="mt-2 border-t border-line pt-6">
       <h2 className="text-lg font-extrabold tracking-tight">Статистика отдела</h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (

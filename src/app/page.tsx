@@ -63,9 +63,9 @@ export default function Home() {
   return (
     <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-8">
       {report === null ? (
-        <div className="mx-auto flex min-h-[80vh] max-w-3xl flex-col justify-center py-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs font-bold uppercase tracking-widest text-accent">
+        <div className="flex flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+            <p className="text-sm font-extrabold uppercase tracking-widest text-accent">
               БФЛ Аналитик
             </p>
             <div className="flex items-center gap-3">
@@ -85,34 +85,37 @@ export default function Home() {
               <ThemeSwitcher />
             </div>
           </div>
-          <h1 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-[2.6rem] sm:leading-[1.1]">
-            Разбор кредитного отчёта
-            <br />
-            <span className="text-muted">за 10 секунд — вместо часа</span>
-          </h1>
-          <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-ink-soft">
-            Загрузите PDF-отчёт клиента — система покажет реальную финансовую
-            картину: сколько уже сгорело на процентах, сколько он ещё отдаст
-            банкам и сколько сэкономит через БФЛ или РДГ. Отдельно подсветит
-            compliance-риски для юриста.
-          </p>
-          <div className="mt-8">
+
+          <div className="grid items-center gap-8 py-8 lg:grid-cols-2 lg:gap-16 xl:gap-24">
+            <div>
+              <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-4xl xl:text-[2.7rem]">
+                Разбор кредитного отчёта
+                <br />
+                <span className="text-muted">за 10 секунд — вместо часа</span>
+              </h1>
+              <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-ink-soft">
+                Загрузите PDF-отчёт клиента — система покажет, сколько сгорело
+                на процентах, сколько он ещё отдаст банкам и сколько сэкономит
+                через БФЛ или РДГ. Compliance-риски — отдельно для юриста.
+              </p>
+              <ul className="mt-5 space-y-2 text-sm text-ink-soft">
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 text-good font-bold">✓</span>
+                  Проценты против тела долга — из отчёта, не из головы
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 text-good font-bold">✓</span>
+                  Сравнение сценариев: банки vs БФЛ vs РДГ — с настройками
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="mt-0.5 text-good font-bold">✓</span>
+                  Рисковые кредиты — 0–2 платежа, серии займов
+                </li>
+              </ul>
+            </div>
+
             <UploadZone onParsed={handleParsed} />
           </div>
-          <ul className="mt-8 grid gap-3 text-sm text-muted sm:grid-cols-3">
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-good">✓</span> Проценты против тела
-              долга — из отчёта, не из головы
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-good">✓</span> Сравнение: банки vs
-              БФЛ vs РДГ с настройками
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="mt-0.5 text-good">✓</span> Рисковые кредиты — 0–2
-              платежа, серии займов
-            </li>
-          </ul>
 
           <LeadsBoard
             refreshKey={leadsVersion}

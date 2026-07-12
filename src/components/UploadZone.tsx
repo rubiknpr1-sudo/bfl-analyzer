@@ -64,7 +64,7 @@ export function UploadZone({ onParsed }: UploadZoneProps) {
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
         disabled={isLoading}
-        className={`group relative w-full rounded-2xl border-2 border-dashed px-8 py-14 text-center transition-all duration-200 cursor-pointer
+        className={`group relative w-full rounded-2xl border-2 border-dashed px-8 py-10 text-center transition-all duration-200 cursor-pointer
           ${
             isDragging
               ? "border-accent bg-accent-soft scale-[1.01]"
