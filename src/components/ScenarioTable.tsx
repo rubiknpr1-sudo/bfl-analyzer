@@ -117,6 +117,17 @@ export function ScenarioTable({ analysis }: ScenarioTableProps) {
           <b>{fmtMoney(bfl.paymentDelta)}</b> в месяц ниже, чем клиент платит
           банкам сейчас — и через {fmtMonths(bfl.months)} вопрос закрыт, а не
           тянется ещё {fmtMonths(bank.monthsLeft)}.
+          {analysis.bflPaybackMonths !== null &&
+            analysis.bflPaybackMonths < bank.monthsLeft && (
+              <>
+                {" "}
+                Стоимость процедуры окупается за{" "}
+                <b title="Стоимость БФЛ, делённая на текущий месячный платёж банкам">
+                  {fmtMonths(analysis.bflPaybackMonths)}
+                </b>{" "}
+                текущих платежей банкам.
+              </>
+            )}
         </p>
       )}
     </section>

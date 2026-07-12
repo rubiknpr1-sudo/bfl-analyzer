@@ -104,7 +104,10 @@ export function Dashboard({ report, onReset }: DashboardProps) {
     paid.paidTotal > 0
       ? {
           stage: "1 · Показать реальность",
-          text: `«Смотрите, что происходит с вашими деньгами: вы уже внесли ${fmtMoney(paid.paidTotal)}, а долг уменьшился только на ${fmtMoney(paid.paidPrincipal)}. ${fmtPercent(paid.burnedShare)} ваших платежей банк забрал процентами»`,
+          text:
+            paid.burnedShare < 0.1
+              ? `«Пока вы платили аккуратно и почти без процентов. Но дальше так не будет: на вашем долге ${fmtMoney(bank.totalDebtNow)} банки заработают ещё ${fmtMoney(bank.totalOverpay)} — примерно ${fmtMoney(analysis.dailyInterest)} процентов каждый день»`
+              : `«Смотрите, что происходит с вашими деньгами: вы уже внесли ${fmtMoney(paid.paidTotal)}, а долг уменьшился только на ${fmtMoney(paid.paidPrincipal)}. ${fmtPercent(paid.burnedShare)} ваших платежей банк забрал процентами»`,
         }
       : null,
     {
@@ -248,7 +251,7 @@ export function Dashboard({ report, onReset }: DashboardProps) {
             </section>
           )}
 
-          <PaidBreakdown paid={paid} />
+          <PaidBreakdown analysis={analysis} />
           <LoansTable perLoan={bank.perLoan} closed={report.closedLoans} />
           <ComplianceBlock flags={flags} />
         </div>

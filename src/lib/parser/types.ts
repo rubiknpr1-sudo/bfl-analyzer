@@ -21,6 +21,11 @@ export interface LoanPayment {
   interest: number | null;
 }
 
+export interface DebtSnapshot {
+  date: string; // ISO yyyy-mm-dd
+  total: number;
+}
+
 export interface Loan {
   index: number;
   bank: string;
@@ -41,6 +46,10 @@ export interface Loan {
   paidOther: number;
   avgMonthlyPayment: number | null;
   payments: LoanPayment[];
+  /** Кредитная линия с платёжной картой — «внесённое» по ней это оборот, не погашение займа */
+  isCreditCard: boolean;
+  /** История общей задолженности из отчёта, по возрастанию даты */
+  debtHistory: DebtSnapshot[];
   lastUpdate: string | null; // ISO
 }
 

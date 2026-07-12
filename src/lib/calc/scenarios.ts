@@ -64,6 +64,8 @@ export interface PaidAnalysis {
   paidOther: number;
   principalShare: number;
   burnedShare: number;
+  /** Оборот по кредитным картам внутри paidTotal — «потратил-погасил», не погашение займа */
+  cardTurnover: number;
 }
 
 export interface Analysis {
@@ -71,6 +73,10 @@ export interface Analysis {
   bank: BankScenario;
   bfl: ProcedureScenario;
   rdg: ProcedureScenario;
+  /** Сколько процентов начисляется на текущий долг в день, ₽ */
+  dailyInterest: number;
+  /** За сколько месяцев стоимость БФЛ окупается текущими платежами банкам */
+  bflPaybackMonths: number | null;
 }
 
 function monthsToRepay(debt: number, payment: number, monthlyRate: number): number {
@@ -180,7 +186,15 @@ export function analyzeReport(
     paidOther,
     principalShare: paidTotal > 0 ? paidPrincipal / paidTotal : 0,
     burnedShare: paidTotal > 0 ? (paidInterest + paidOther) / paidTotal : 0,
+    cardTurnover: allActive
+      .filter((l) => l.isCreditCard)
+      .reduce((s, l) => s + l.paidPrincipal, 0),
   };
+
+  const dailyInterest = perLoan.reduce(
+    (s, p) => s + (p.loan.debtTotal * p.monthlyRate * 12) / 365,
+    0,
+  );
 
   const makeProcedure = (
     kind: "БФЛ" | "РДГ",
@@ -204,6 +218,9 @@ export function analyzeReport(
   return {
     paid,
     bank,
+    dailyInterest,
+    bflPaybackMonths:
+      monthlyPayment > 0 ? Math.ceil(settings.bflCost / monthlyPayment) : null,
     // БФЛ: долги списываются — клиент отдаёт только стоимость процедуры
     bfl: makeProcedure("БФЛ", settings.bflCost, settings.bflMonths, settings.bflCost),
     // РДГ: долг гасится по новым условиям без будущих процентов + стоимость услуги

@@ -9,6 +9,55 @@ interface LoansTableProps {
   closed: ClosedLoanBrief[];
 }
 
+/** Мини-график динамики долга из истории в отчёте */
+function DebtSparkline({ history }: { history: { date: string; total: number }[] }) {
+  if (history.length < 3) return null;
+  const width = 120;
+  const height = 30;
+  const max = Math.max(...history.map((h) => h.total), 1);
+  const points = history
+    .map((h, i) => {
+      const x = (i / (history.length - 1)) * (width - 4) + 2;
+      const y = height - 3 - (h.total / max) * (height - 6);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const first = history[0].total;
+  const last = history[history.length - 1].total;
+  const isGrowing = last >= first * 0.98;
+
+  return (
+    <span
+      title={`Динамика долга из отчёта: ${history.length} точек, от ${fmtDate(history[0].date)} к ${fmtDate(history[history.length - 1].date)}. ${isGrowing ? "Долг не уменьшается" : "Долг снижается"}`}
+      className="inline-flex cursor-help items-center gap-1.5"
+    >
+      <svg width={width} height={height} className="shrink-0">
+        <polyline
+          points={points}
+          fill="none"
+          stroke={isGrowing ? "var(--bad)" : "var(--good)"}
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <circle
+          cx={points.split(" ").pop()?.split(",")[0]}
+          cy={points.split(" ").pop()?.split(",")[1]}
+          r="2.5"
+          fill={isGrowing ? "var(--bad)" : "var(--good)"}
+        />
+      </svg>
+      <span
+        className={`text-[10px] font-bold uppercase tracking-wide ${
+          isGrowing ? "text-bad" : "text-good"
+        }`}
+      >
+        {isGrowing ? "долг не падает" : "долг снижается"}
+      </span>
+    </span>
+  );
+}
+
 /**
  * Разбор по кредитам: горизонтальные полосы на общей шкале.
  * Длина полосы = сколько клиент всего отдаст; сегменты — долг сейчас
@@ -128,18 +177,32 @@ export function LoansTable({ perLoan, closed }: LoansTableProps) {
                 </p>
               </div>
 
-              <p className="mt-1.5 text-xs text-muted">
-                <span
-                  title={`Выплачено тела долга ${fmtMoney(paidPrincipal)} из ${fmtMoney(totalPrincipal)}; проценты сюда не входят`}
-                  className="cursor-help"
-                >
-                  погашено тела {fmtPercent(progress)}
-                </span>
-                {" · открыт "}
-                {fmtDate(p.loan.openDate)}
-                {p.loan.obligationAmount !== null &&
-                  ` · лимит ${fmtMoney(p.loan.obligationAmount)}`}
-              </p>
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <p className="text-xs text-muted">
+                  <span
+                    title={`Выплачено тела долга ${fmtMoney(paidPrincipal)} из ${fmtMoney(totalPrincipal)}; проценты сюда не входят`}
+                    className="cursor-help"
+                  >
+                    погашено тела {fmtPercent(progress)}
+                  </span>
+                  {" · открыт "}
+                  {fmtDate(p.loan.openDate)}
+                  {p.loan.obligationAmount !== null &&
+                    ` · лимит ${fmtMoney(p.loan.obligationAmount)}`}
+                  {p.loan.isCreditCard && (
+                    <span
+                      title="Кредитная линия с платёжной картой — «внесённое» по ней это оборот, не погашение займа"
+                      className="cursor-help"
+                    >
+                      {" · "}
+                      <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                        карта
+                      </span>
+                    </span>
+                  )}
+                </p>
+                <DebtSparkline history={p.loan.debtHistory} />
+              </div>
             </article>
           );
         })}

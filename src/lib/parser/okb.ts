@@ -230,8 +230,21 @@ function parseLoanBlock(
     paidOther: 0,
     avgMonthlyPayment: null,
     payments: [],
+    isCreditCard: false,
+    debtHistory: [],
     lastUpdate: null,
   };
+
+  // Платёжная карта: колонка «Используется платежная карта» в общих сведениях
+  const cardLabelIdx = findIndex(block, (l) =>
+    l.includes("Используется платежная карта"),
+  );
+  if (cardLabelIdx >= 0 && block[cardLabelIdx + 1]) {
+    const labels = block[cardLabelIdx].trim().split(/\s{2,}/);
+    const values = block[cardLabelIdx + 1].trim().split(/\s{2,}/);
+    const col = labels.findIndex((l) => l.includes("платежная карта"));
+    loan.isCreditCard = col >= 0 && values[col]?.trim() === "Да";
+  }
 
   const updIdx = findIndex(block, (l) =>
     l.includes("Последнее обновление кредитной информации"),
@@ -293,18 +306,32 @@ function parseLoanBlock(
     l.trim().startsWith("Сведения о сумме задолженности"),
   );
   if (debtIdx >= 0) {
-    const generalIdx = findIndex(
+    const debtEnd = findIndex(
       block,
-      (l) => l.trim().startsWith("Общая"),
+      (l) => l.trim().startsWith("Сумма всех внесенных платежей"),
       debtIdx,
     );
-    if (generalIdx >= 0) {
-      const amounts = extractAmounts(block[generalIdx]);
-      loan.debtTotal = amounts[0] ?? 0;
-      loan.debtPrincipal = amounts[1] ?? 0;
-      loan.debtInterest = amounts[2] ?? 0;
-      loan.debtOther = amounts[3] ?? 0;
+    let isFirstGeneral = true;
+    for (let i = debtIdx; i < (debtEnd < 0 ? block.length : debtEnd); i++) {
+      if (!block[i].trim().startsWith("Общая")) continue;
+      const amounts = extractAmounts(block[i]);
+      if (amounts.length === 0) continue;
+      if (isFirstGeneral) {
+        loan.debtTotal = amounts[0] ?? 0;
+        loan.debtPrincipal = amounts[1] ?? 0;
+        loan.debtInterest = amounts[2] ?? 0;
+        loan.debtOther = amounts[3] ?? 0;
+        isFirstGeneral = false;
+      }
+      const dateMatch = block[i].match(/(\d{2})\.(\d{2})\.(\d{4})/);
+      if (dateMatch) {
+        loan.debtHistory.push({
+          date: `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`,
+          total: amounts[0] ?? 0,
+        });
+      }
     }
+    loan.debtHistory.sort((a, b) => a.date.localeCompare(b.date));
   }
 
   // Всего внесено: секция «Сумма всех внесенных платежей»
@@ -314,7 +341,8 @@ function parseLoanBlock(
   if (paidIdx >= 0) {
     for (let i = paidIdx + 1; i < Math.min(paidIdx + 5, block.length); i++) {
       const amounts = extractAmounts(block[i]);
-      if (amounts.length >= 2) {
+      // Бывает одна сумма без разбивки (остальные колонки — прочерки)
+      if (amounts.length >= 1) {
         loan.paidTotal = amounts[0] ?? 0;
         loan.paidPrincipal = amounts[1] ?? 0;
         loan.paidInterest = amounts[2] ?? 0;
