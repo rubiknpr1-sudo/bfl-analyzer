@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# БФЛ Аналитик — разбор кредитного отчёта для менеджера по продажам
 
-## Getting Started
+Веб-система для менеджера по продажам банкротства физических лиц (БФЛ).
+Менеджер загружает PDF кредитного отчёта клиента (ОКБ / Credistory) — система за секунды показывает:
 
-First, run the development server:
+- **текущую ситуацию** — долг, кредиты, просрочки, рейтинг, возраст КИ;
+- **сколько клиент уже заплатил** и **сколько из этого сгорело на процентах** (разбивка «тело долга vs проценты» берётся напрямую из отчёта, не оценивается);
+- **сколько он ещё выплатит банкам с процентами**, если ничего не менять (аннуитетная модель по каждому кредиту: долг + ставка ПСК + платёж);
+- **сравнение трёх сценариев** — «платить банкам дальше» vs **БФЛ** (по умолчанию 200 000 ₽) vs **РДГ** (по умолчанию 150 000 ₽): платёж в месяц / срок / всего отдаст / экономия;
+- **готовые фразы для разговора** с клиентом, посчитанные из его же цифр;
+- **отдельный compliance-блок** (не для продажи — для юриста): кредиты с 0/1/2 платежами, несколько кредитов за < 4 дней, крупный долг при < 3 платежах, аномальная заявочная активность, молодая КИ.
+
+**Живой стенд:** http://91.218.246.12:3078
+
+## Как запустить
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install        # или bun install
+npm run dev        # http://localhost:3000
+# прод:
+npm run build && npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Node.js ≥ 20. БД не нужна: отчёт разбирается в памяти, **PII никуда не сохраняется** (ни на диск, ни в БД) — важно, т.к. в отчётах паспорта и ИНН.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Как это работает
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+PDF → pdfjs-dist (текст с восстановлением строк/колонок по координатам)
+    → детерминированный парсер секций ОКБ (src/lib/parser/okb.ts)
+    → чистый расчётный движок (src/lib/calc/scenarios.ts, compliance.ts)
+    → дашборд (Next.js App Router + Tailwind)
+```
 
-## Learn More
+- Парсер работает по якорным секциям отчёта («Сумма всех внесенных платежей», «Фактические платежи по договору», «Сведения о сумме задолженности», ПСК, даты сделок) и проверен на двух реальных отчётах разных версий формата (v3.10 и v3.17).
+- Контрольная сверка: сумма долгов по кредитам сходится со сводкой отчёта копейка в копейку на обоих файлах.
+- Расчёты выполняются на клиенте — настройки (стоимость/срок БФЛ и РДГ, мин. платёж по картам, ставка по умолчанию) пересчитывают все блоки мгновенно, без перезагрузки. Ничего не захардкожено.
 
-To learn more about Next.js, take a look at the following resources:
+## Что работает
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Загрузка PDF (drag&drop), разбор отчётов ОКБ/Credistory, обработка ошибок формата;
+- все продажные блоки из ТЗ: текущая ситуация, «сколько уже заплатил», «проценты против тела», «сколько ещё платить», сравнение сценариев с настройками, главный продажный вопрос таблицей;
+- compliance-блок, визуально отделённый от продажных расчётов;
+- фразы для разговора; полная адаптивность; production-деплой (pm2).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Что не успел
 
-## Deploy on Vercel
+- **НБКИ-формат**: под рукой были только отчёты ОКБ (Credistory) — парсер модульный (`extract → parse → calc`), добавление НБКИ = ещё один парсер с теми же типами на выходе;
+- юнит-тесты движка оформлены как проверочные скрипты (`scripts/test-parser.ts`), не как vitest-сьют;
+- экспорт разбора в PDF/печать для отправки клиенту;
+- авторизация менеджеров (для теста стенд открытый).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Допущения
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Платёж по кредиту**: берётся «величина среднемесячного платежа» из отчёта; если его нет или он не покрывает проценты (кредитные карты) — оценка: аннуитет по сроку договора, иначе мин. платёж = 5 % долга/мес (настраивается). Такие строки помечены бейджем «оценка».
+2. **Ставка** — максимальная ПСК из отчёта; если не распознана — настройка «ставка по умолчанию» (30 %).
+3. **БФЛ**: клиент отдаёт только стоимость процедуры (долги списываются), платёж = стоимость/срок.
+4. **РДГ**: трактуется как реструктуризация — клиент гасит тело долга без будущих процентов + стоимость услуги. Поэтому «всего отдаст» = долг + услуга: честнее, чем показывать одну цену услуги.
+5. **Compliance** считается по действующим кредитам с ненулевым долгом; закрытые договоры показываются справочно и в расчёты не входят.
+6. Реальные PDF-отчёты и текстовые дампы в репозиторий **не включены** (персональные данные) — они в `.gitignore`.
+
+## Структура
+
+```
+src/lib/parser/   extract.ts (PDF→строки), okb.ts (парсер), types.ts
+src/lib/calc/     scenarios.ts (3 сценария), compliance.ts (риски)
+src/app/api/analyze/route.ts   POST PDF → JSON
+src/components/   Dashboard, ScenarioTable, PaidBreakdown, LoansTable,
+                  ComplianceBlock, SettingsPanel, UploadZone
+scripts/          dump-text.ts, test-parser.ts (проверка на реальных отчётах)
+```

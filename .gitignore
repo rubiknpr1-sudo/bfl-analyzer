@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# PII: реальные отчёты — не коммитить
+samples/
+fixtures/*.txt
+.omc/
+tsconfig.tsbuildinfo
