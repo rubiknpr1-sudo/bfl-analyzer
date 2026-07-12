@@ -68,19 +68,22 @@ export default function Home() {
             <p className="text-xs font-bold uppercase tracking-widest text-accent">
               БФЛ Аналитик
             </p>
-            <label
-              className="flex items-center gap-2 text-xs font-semibold text-muted"
-              title="Имя подставится в заявку — по нему считается статистика менеджеров"
-            >
-              Менеджер:
-              <input
-                type="text"
-                value={manager}
-                onChange={(e) => handleManager(e.target.value)}
-                placeholder="ваше имя"
-                className="w-36 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-foreground outline-none transition-colors focus:border-accent"
-              />
-            </label>
+            <div className="flex items-center gap-3">
+              <label
+                className="flex items-center gap-2 text-xs font-semibold text-muted"
+                title="Имя подставится в заявку — по нему считается статистика менеджеров"
+              >
+                Менеджер:
+                <input
+                  type="text"
+                  value={manager}
+                  onChange={(e) => handleManager(e.target.value)}
+                  placeholder="ваше имя"
+                  className="w-36 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs font-bold text-foreground outline-none transition-colors focus:border-accent"
+                />
+              </label>
+              <ThemeSwitcher />
+            </div>
           </div>
           <h1 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-[2.6rem] sm:leading-[1.1]">
             Разбор кредитного отчёта
@@ -130,7 +133,6 @@ export default function Home() {
       ) : (
         <Dashboard report={report} onReset={() => setReport(null)} />
       )}
-      <ThemeSwitcher />
     </main>
   );
 }

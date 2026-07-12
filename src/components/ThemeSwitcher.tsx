@@ -19,7 +19,7 @@ function applyTheme(theme: ThemeId): void {
   }
 }
 
-/** Переключатель трёх вариантов дизайна; выбор живёт в localStorage */
+/** Переключатель темы — встраивается в шапку, выбор живёт в localStorage */
 export function ThemeSwitcher() {
   const [theme, setTheme] = useState<ThemeId>("classic");
 
@@ -38,14 +38,14 @@ export function ThemeSwitcher() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-[0_4px_16px_rgba(0,0,0,0.12)]">
+    <div className="inline-flex items-center gap-1 rounded-full border border-line bg-surface p-1">
       {THEMES.map((t) => (
         <button
           key={t.id}
           type="button"
           onClick={() => select(t.id)}
           aria-pressed={theme === t.id}
-          className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
+          className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${
             theme === t.id
               ? "bg-foreground text-background"
               : "text-muted hover:text-foreground"

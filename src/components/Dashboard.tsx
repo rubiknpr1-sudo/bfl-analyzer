@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CreditReport } from "@/lib/parser/types";
 import {
   analyzeReport,
@@ -14,10 +14,38 @@ import { PaidBreakdown } from "./PaidBreakdown";
 import { LoansTable } from "./LoansTable";
 import { ComplianceBlock } from "./ComplianceBlock";
 import { SettingsPanel } from "./SettingsPanel";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 interface DashboardProps {
   report: CreditReport;
   onReset: () => void;
+}
+
+function CopyButton({ text, wide }: { text: string; wide?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(text);
+        setCopied(true);
+      }}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+        copied
+          ? "border-good/40 bg-good-soft text-good"
+          : "border-line bg-surface text-accent hover:border-accent"
+      } ${wide ? "w-full py-2" : ""}`}
+    >
+      {copied ? "Скопировано ✓" : "Копировать"}
+    </button>
+  );
 }
 
 interface StatCard {
@@ -137,13 +165,16 @@ export function Dashboard({ report, onReset }: DashboardProps) {
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onReset}
-          className="rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
-        >
-          ← Новый отчёт
-        </button>
+        <div className="flex items-center gap-3">
+          <ThemeSwitcher />
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:border-accent hover:text-accent"
+          >
+            ← Новый отчёт
+          </button>
+        </div>
       </header>
 
       {/* Карточки-герои */}
@@ -179,6 +210,44 @@ export function Dashboard({ report, onReset }: DashboardProps) {
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_300px]">
         <div className="min-w-0 space-y-6">
           <ScenarioTable analysis={analysis} />
+
+          {script.length > 0 && (
+            <section className="rounded-2xl border border-accent/25 bg-accent-soft/50 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-extrabold tracking-tight">
+                    Скрипт разговора
+                  </h2>
+                  <p className="mt-0.5 text-sm text-muted">
+                    4 шага, цифры клиента уже подставлены — копируйте и
+                    отправляйте
+                  </p>
+                </div>
+                <CopyButton
+                  text={script.map((s) => `${s.stage}\n${s.text}`).join("\n\n")}
+                />
+              </div>
+              <ol className="mt-4 grid gap-3 lg:grid-cols-2">
+                {script.map((step) => (
+                  <li
+                    key={step.stage}
+                    className="flex flex-col rounded-xl chip p-4"
+                  >
+                    <p className="text-[11px] font-extrabold uppercase tracking-wide text-accent">
+                      {step.stage}
+                    </p>
+                    <p className="mt-1.5 flex-1 text-[15px] leading-relaxed text-ink-soft">
+                      {step.text}
+                    </p>
+                    <div className="mt-3">
+                      <CopyButton text={step.text} wide />
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+
           <PaidBreakdown paid={paid} />
           <LoansTable perLoan={bank.perLoan} closed={report.closedLoans} />
           <ComplianceBlock flags={flags} />
@@ -186,51 +255,6 @@ export function Dashboard({ report, onReset }: DashboardProps) {
 
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
           <SettingsPanel settings={settings} onChange={setSettings} />
-
-          {script.length > 0 && (
-            <aside className="rounded-2xl border border-accent/25 bg-accent-soft/60 p-5">
-              <h2 className="text-base font-extrabold tracking-tight">
-                Скрипт разговора
-              </h2>
-              <p className="mt-0.5 text-xs text-muted">
-                4 шага, цифры клиента уже подставлены
-              </p>
-              <ol className="mt-3 space-y-3">
-                {script.map((step) => (
-                  <li
-                    key={step.stage}
-                    className="group relative rounded-xl chip px-3.5 py-3"
-                  >
-                    <p className="text-[10px] font-extrabold uppercase tracking-wide text-accent">
-                      {step.stage}
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-                      {step.text}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void navigator.clipboard.writeText(step.text)}
-                      title="Скопировать фразу"
-                      className="absolute right-2 top-2 rounded-md border border-line bg-surface px-2 py-0.5 text-[10px] font-bold text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-accent"
-                    >
-                      копировать
-                    </button>
-                  </li>
-                ))}
-              </ol>
-              <button
-                type="button"
-                onClick={() =>
-                  void navigator.clipboard.writeText(
-                    script.map((s) => `${s.stage}\n${s.text}`).join("\n\n"),
-                  )
-                }
-                className="mt-3 w-full rounded-lg border border-accent/40 bg-surface px-3 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent hover:text-white"
-              >
-                Скопировать весь скрипт
-              </button>
-            </aside>
-          )}
         </div>
       </div>
     </div>
