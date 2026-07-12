@@ -36,25 +36,6 @@
   --chip: rgba(255, 255, 255, 0.06);
 }
 
-/* Тема «Издание» — светлый editorial с жёсткими рамками */
-:root[data-theme="editorial"] {
-  --background: #ffffff;
-  --surface: #ffffff;
-  --foreground: #0b0b0d;
-  --muted: #5a5a60;
-  --line: #0b0b0d;
-  --ink-soft: #2c2c31;
-  --good: #0a7f3f;
-  --good-soft: #e4f4ea;
-  --bad: #d92d20;
-  --bad-soft: #fdebe9;
-  --warn: #9a5b00;
-  --warn-soft: #fcf1df;
-  --accent: #2f45ff;
-  --accent-soft: #e9ecff;
-  --chip: #f4f4f0;
-}
-
 :root {
   --chip: rgba(255, 255, 255, 0.8);
 }

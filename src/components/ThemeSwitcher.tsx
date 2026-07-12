@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-type ThemeId = "classic" | "noir" | "editorial";
+type ThemeId = "classic" | "noir";
 
 const THEMES: { id: ThemeId; label: string }[] = [
-  { id: "classic", label: "Классик" },
-  { id: "noir", label: "Нуар" },
-  { id: "editorial", label: "Издание" },
+  { id: "classic", label: "Светлая" },
+  { id: "noir", label: "Тёмная" },
 ];
 
 const STORAGE_KEY = "bfl-theme";

@@ -46,3 +46,4 @@ samples/
 fixtures/
 .omc/
 tsconfig.tsbuildinfo
+data/

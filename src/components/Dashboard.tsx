@@ -25,6 +25,7 @@ interface StatCard {
   value: string;
   sub: string;
   tone: "neutral" | "bad" | "good";
+  hint: string;
 }
 
 export function Dashboard({ report, onReset }: DashboardProps) {
@@ -43,18 +44,21 @@ export function Dashboard({ report, onReset }: DashboardProps) {
       value: fmtMoney(bank.totalDebtNow),
       sub: `действующих: ${report.summary.activeLoansCount ?? bank.perLoan.length} · с долгом: ${fmtLoans(bank.perLoan.length)}`,
       tone: "neutral",
+      hint: "Сумма «Общая задолженность» по всем действующим кредитам из отчёта — тело долга плюс уже начисленные проценты",
     },
     {
       label: "Отдаст банкам, если не менять",
       value: fmtMoney(bank.totalToPay),
       sub: `переплата ${fmtMoney(bank.totalOverpay)} процентами`,
       tone: "bad",
+      hint: "Прогноз: по каждому кредиту берём долг, ставку ПСК и платёж из отчёта и считаем полную стоимость погашения. Главная цифра для разговора",
     },
     {
       label: "Платить ещё",
       value: fmtMonths(bank.monthsLeft),
       sub: `по ${fmtMoney(bank.monthlyPayment)} в месяц`,
       tone: "neutral",
+      hint: "Срок самого длинного кредита при текущих платежах; платёж — сумма ежемесячных платежей по всем кредитам",
     },
     {
       label: "Экономия через БФЛ",
@@ -64,18 +68,35 @@ export function Dashboard({ report, onReset }: DashboardProps) {
           ? `${fmtPercent(bfl.savingPercent)} от будущих выплат банкам`
           : "при текущем долге процедура дороже",
       tone: bfl.saving > 0 ? "good" : "neutral",
+      hint: "Сколько клиент сохранит: будущие выплаты банкам минус стоимость процедуры БФЛ из настроек",
     },
   ];
 
-  const talkingPoints: string[] = [
+  const script: { stage: string; text: string }[] = [
     paid.paidTotal > 0
-      ? `«Вы уже отдали банкам ${fmtMoney(paid.paidTotal)}, а долг уменьшился только на ${fmtMoney(paid.paidPrincipal)} — ${fmtPercent(paid.burnedShare)} платежей сгорело на процентах»`
-      : "",
-    `«Если ничего не менять, вы отдадите банкам ещё ${fmtMoney(bank.totalToPay)} за ${fmtMonths(bank.monthsLeft)} — это ${(bank.totalToPay / Math.max(bank.totalDebtNow, 1)).toFixed(1).replace(".", ",")}× текущего долга»`,
+      ? {
+          stage: "1 · Показать реальность",
+          text: `«Смотрите, что происходит с вашими деньгами: вы уже внесли ${fmtMoney(paid.paidTotal)}, а долг уменьшился только на ${fmtMoney(paid.paidPrincipal)}. ${fmtPercent(paid.burnedShare)} ваших платежей банк забрал процентами»`,
+        }
+      : null,
+    {
+      stage: "2 · Прогноз, если ничего не менять",
+      text: `«Если продолжать платить как сейчас — вы отдадите банкам ещё ${fmtMoney(bank.totalToPay)} за ${fmtMonths(bank.monthsLeft)}. Это ${(bank.totalToPay / Math.max(bank.totalDebtNow, 1)).toFixed(1).replace(".", ",")} рубля с каждого рубля текущего долга»`,
+    },
     bfl.saving > 0
-      ? `«Через БФЛ вопрос закрывается за ${fmtMonths(bfl.months)} и ${fmtMoney(bfl.cost)} — вы экономите ${fmtMoney(bfl.saving)}»`
-      : "",
-  ].filter((t) => t !== "");
+      ? {
+          stage: "3 · Предложить решение",
+          text: `«Есть законный способ закрыть вопрос за ${fmtMonths(bfl.months)}: процедура стоит ${fmtMoney(bfl.cost)} — вместо ${fmtMoney(bank.totalToPay)} банкам. Ваша экономия ${fmtMoney(bfl.saving)}»`,
+        }
+      : null,
+    {
+      stage: "4 · Закрыть на решение",
+      text:
+        bfl.saving > 0
+          ? `«Что для вас удобнее: платить банкам ${fmtMoney(bank.monthlyPayment)} в месяц ещё ${fmtMonths(bank.monthsLeft)} — или ${fmtMoney(bfl.monthlyPayment)} в месяц ${fmtMonths(bfl.months)} и полностью закрыть долги?»`
+          : `«Давайте посмотрим вместе с юристом, какой вариант в вашей ситуации выгоднее — расчёт у нас уже готов»`,
+    },
+  ].filter((s): s is { stage: string; text: string } => s !== null);
 
   return (
     <div className="w-full">
@@ -130,7 +151,8 @@ export function Dashboard({ report, onReset }: DashboardProps) {
         {cards.map((card) => (
           <div
             key={card.label}
-            className={`rounded-2xl border p-5 shadow-[0_1px_3px_rgba(27,36,54,0.06)] ${
+            title={card.hint}
+            className={`cursor-help rounded-2xl border p-5 shadow-[0_1px_3px_rgba(27,36,54,0.06)] ${
               card.tone === "good"
                 ? "border-good/30 bg-good-soft"
                 : card.tone === "bad"
@@ -165,21 +187,29 @@ export function Dashboard({ report, onReset }: DashboardProps) {
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
           <SettingsPanel settings={settings} onChange={setSettings} />
 
-          {talkingPoints.length > 0 && (
+          {script.length > 0 && (
             <aside className="rounded-2xl border border-accent/25 bg-accent-soft/60 p-5">
               <h2 className="text-base font-extrabold tracking-tight">
-                Фразы для разговора
+                Скрипт разговора
               </h2>
-              <ul className="mt-3 space-y-3">
-                {talkingPoints.map((point) => (
+              <p className="mt-0.5 text-xs text-muted">
+                4 шага, цифры клиента уже подставлены
+              </p>
+              <ol className="mt-3 space-y-3">
+                {script.map((step) => (
                   <li
-                    key={point}
-                    className="group relative rounded-xl chip px-3.5 py-3 text-sm leading-relaxed text-ink-soft"
+                    key={step.stage}
+                    className="group relative rounded-xl chip px-3.5 py-3"
                   >
-                    {point}
+                    <p className="text-[10px] font-extrabold uppercase tracking-wide text-accent">
+                      {step.stage}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                      {step.text}
+                    </p>
                     <button
                       type="button"
-                      onClick={() => void navigator.clipboard.writeText(point)}
+                      onClick={() => void navigator.clipboard.writeText(step.text)}
                       title="Скопировать фразу"
                       className="absolute right-2 top-2 rounded-md border border-line bg-surface px-2 py-0.5 text-[10px] font-bold text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-accent"
                     >
@@ -187,7 +217,18 @@ export function Dashboard({ report, onReset }: DashboardProps) {
                     </button>
                   </li>
                 ))}
-              </ul>
+              </ol>
+              <button
+                type="button"
+                onClick={() =>
+                  void navigator.clipboard.writeText(
+                    script.map((s) => `${s.stage}\n${s.text}`).join("\n\n"),
+                  )
+                }
+                className="mt-3 w-full rounded-lg border border-accent/40 bg-surface px-3 py-2 text-xs font-bold text-accent transition-colors hover:bg-accent hover:text-white"
+              >
+                Скопировать весь скрипт
+              </button>
             </aside>
           )}
         </div>
