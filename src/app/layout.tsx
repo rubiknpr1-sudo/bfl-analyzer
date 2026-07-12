@@ -19,7 +19,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${manrope.variable} h-full antialiased`}>
+    <html
+      lang="ru"
+      className={`${manrope.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Тема до гидрации — иначе тёмная тема вспыхивает светлым на каждой загрузке */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('bfl-theme')==='noir')document.documentElement.dataset.theme='noir'}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

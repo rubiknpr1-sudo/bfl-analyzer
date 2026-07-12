@@ -159,16 +159,18 @@ function parsePayments(block: string[]): LoanPayment[] {
   let pendingAmounts: number[][] = [];
 
   const flush = (): void => {
-    if (pendingDates.length === 0 || currentYear === null) return;
-    const [sums, principals, interests] = pendingAmounts;
-    pendingDates.forEach((d, i) => {
-      payments.push({
-        date: `${currentYear}-${MONTHS[d.month]}-${d.day.padStart(2, "0")}`,
-        amount: sums?.[i] ?? 0,
-        principal: principals?.[i] ?? null,
-        interest: interests?.[i] ?? null,
+    // Буферы чистим ВСЕГДА — иначе даты без года всплывут фантомами позже
+    if (pendingDates.length > 0 && currentYear !== null) {
+      const [sums, principals, interests] = pendingAmounts;
+      pendingDates.forEach((d, i) => {
+        payments.push({
+          date: `${currentYear}-${MONTHS[d.month]}-${d.day.padStart(2, "0")}`,
+          amount: sums?.[i] ?? 0,
+          principal: principals?.[i] ?? null,
+          interest: interests?.[i] ?? null,
+        });
       });
-    });
+    }
     pendingDates = [];
     pendingAmounts = [];
     amountRowsSeen = 0;
@@ -264,12 +266,22 @@ function parseLoanBlock(
         l.includes("Общие сведения о сделке"),
       oblIdx,
     );
-    const amounts: number[] = [];
+    // Секция — история изменений лимита с датами; берём строки самой свежей даты
+    const rows: { amount: number; date: string | null }[] = [];
     for (let i = oblIdx + 1; i < (end < 0 ? block.length : end); i++) {
       const rowAmounts = extractAmounts(block[i]);
-      if (rowAmounts.length > 0) amounts.push(rowAmounts[0]);
+      if (rowAmounts.length > 0) {
+        rows.push({ amount: rowAmounts[0], date: parseRuDate(block[i]) });
+      }
     }
-    if (amounts.length > 0) loan.obligationAmount = Math.max(...amounts);
+    const dated = rows.filter((r) => r.date !== null);
+    if (dated.length > 0) {
+      const latest = dated.reduce((m, r) => ((r.date as string) > m ? (r.date as string) : m), "");
+      const candidates = dated.filter((r) => r.date === latest);
+      loan.obligationAmount = Math.max(...candidates.map((r) => r.amount));
+    } else if (rows.length > 0) {
+      loan.obligationAmount = Math.max(...rows.map((r) => r.amount));
+    }
   }
 
   // ПСК, % годовых: строка значений внутри секции ПСК
@@ -392,32 +404,32 @@ function sliceSection(lines: string[], title: string, from: number): number {
   return findIndex(lines, (l) => l.trim() === title, from);
 }
 
+/**
+ * Начало секции в теле отчёта: второе вхождение заголовка (первое — оглавление);
+ * если отчёт без оглавления — единственное вхождение.
+ */
+function sectionStart(lines: string[], title: string): number {
+  const first = sliceSection(lines, title, 0);
+  if (first < 0) return -1;
+  const second = sliceSection(lines, title, first + 1);
+  return second >= 0 ? second : first;
+}
+
 export function parseOkbReport(rawLines: string[]): CreditReport {
   const lines = cleanLines(rawLines);
 
   const client = parseClient(lines);
   const summary = parseSummary(lines);
 
-  // Детальные блоки идут после ВТОРОГО вхождения заголовка секции (первое — оглавление)
-  const firstActive = sliceSection(lines, "ДЕЙСТВУЮЩИЕ КРЕДИТНЫЕ ДОГОВОРЫ", 0);
-  const activeStart = sliceSection(
-    lines,
-    "ДЕЙСТВУЮЩИЕ КРЕДИТНЫЕ ДОГОВОРЫ",
-    firstActive + 1,
-  );
-
-  const closedTitleIdx = sliceSection(
-    lines,
-    "ЗАКРЫТЫЕ КРЕДИТНЫЕ ДОГОВОРЫ",
-    activeStart + 1,
-  );
-  const stopIdx = findIndex(
-    lines,
-    (l) =>
-      l.trim() === "ЗАПРЕТ НА КРЕДИТЫ И ЗАЙМЫ" ||
-      l.trim() === "КТО ИНТЕРЕСОВАЛСЯ КРЕДИТНОЙ ИСТОРИЕЙ?",
-    activeStart + 1,
-  );
+  const activeStart = sectionStart(lines, "ДЕЙСТВУЮЩИЕ КРЕДИТНЫЕ ДОГОВОРЫ");
+  const closedCandidate = sectionStart(lines, "ЗАКРЫТЫЕ КРЕДИТНЫЕ ДОГОВОРЫ");
+  const closedTitleIdx =
+    closedCandidate > activeStart ? closedCandidate : closedCandidate >= 0 && activeStart < 0 ? closedCandidate : -1;
+  const stopCandidates = [
+    sectionStart(lines, "ЗАПРЕТ НА КРЕДИТЫ И ЗАЙМЫ"),
+    sectionStart(lines, "КТО ИНТЕРЕСОВАЛСЯ КРЕДИТНОЙ ИСТОРИЕЙ?"),
+  ].filter((i) => i > Math.max(activeStart, 0));
+  const stopIdx = stopCandidates.length > 0 ? Math.min(...stopCandidates) : -1;
   const activeEnd =
     closedTitleIdx >= 0 ? closedTitleIdx : stopIdx >= 0 ? stopIdx : lines.length;
 

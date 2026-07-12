@@ -29,14 +29,31 @@ function ok<T>(data: T): Response {
   return Response.json(body);
 }
 
+/**
+ * «Пустая база» — только когда файла ещё нет (ENOENT).
+ * Любой другой сбой чтения/парсинга пробрасывается: иначе следующий POST
+ * молча перезаписал бы весь leads.json пустым списком.
+ */
 async function loadLeads(): Promise<Lead[]> {
+  let raw: string;
   try {
-    const raw = await readFile(DATA_FILE, "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Lead[]) : [];
-  } catch {
-    return [];
+    raw = await readFile(DATA_FILE, "utf8");
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
   }
+  const parsed: unknown = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error("leads.json повреждён: ожидался массив");
+  }
+  return parsed as Lead[];
+}
+
+function storageFail(error: unknown): Response {
+  process.stderr.write(
+    `[leads] storage error: ${error instanceof Error ? error.message : String(error)}\n`,
+  );
+  return fail("Хранилище заявок временно недоступно", 500);
 }
 
 /** Атомарная запись: tmp-файл + rename, чтобы не побить JSON на полуслове */
@@ -68,7 +85,11 @@ function cleanAmount(value: unknown): number | null {
 }
 
 export async function GET(): Promise<Response> {
-  return ok(await loadLeads());
+  try {
+    return ok(await loadLeads());
+  } catch (error: unknown) {
+    return storageFail(error);
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -93,41 +114,45 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   return enqueue(async () => {
-    const leads = await loadLeads();
-    const now = new Date().toISOString();
-    const existing = leads.find(
-      (l) => l.client === client && l.status !== "won" && l.status !== "lost",
-    );
+    try {
+      const leads = await loadLeads();
+      const now = new Date().toISOString();
+      const existing = leads.find(
+        (l) => l.client === client && l.status !== "won" && l.status !== "lost",
+      );
 
-    if (existing) {
-      // Повторный разбор того же клиента — обновляем цифры, статус не трогаем
-      const updated: Lead = {
-        ...existing,
+      if (existing) {
+        // Повторный разбор того же клиента — обновляем цифры;
+        // статус и менеджер НЕ трогаем (иначе заявка молча переатрибуцируется)
+        const updated: Lead = {
+          ...existing,
+          debt,
+          toPay,
+          saving,
+          flagsCount,
+          updatedAt: now,
+        };
+        await saveLeads(leads.map((l) => (l.id === existing.id ? updated : l)));
+        return ok(updated);
+      }
+
+      const lead: Lead = {
+        id: crypto.randomUUID(),
         manager,
+        client,
         debt,
         toPay,
         saving,
         flagsCount,
+        status: "new",
+        createdAt: now,
         updatedAt: now,
       };
-      await saveLeads(leads.map((l) => (l.id === existing.id ? updated : l)));
-      return ok(updated);
+      await saveLeads([lead, ...leads].slice(0, MAX_LEADS));
+      return ok(lead);
+    } catch (error: unknown) {
+      return storageFail(error);
     }
-
-    const lead: Lead = {
-      id: crypto.randomUUID(),
-      manager,
-      client,
-      debt,
-      toPay,
-      saving,
-      flagsCount,
-      status: "new",
-      createdAt: now,
-      updatedAt: now,
-    };
-    await saveLeads([lead, ...leads].slice(0, MAX_LEADS));
-    return ok(lead);
   });
 }
 
@@ -146,12 +171,16 @@ export async function PATCH(request: Request): Promise<Response> {
   if (!id || !status) return fail("Нужны id и корректный status", 400);
 
   return enqueue(async () => {
-    const leads = await loadLeads();
-    const lead = leads.find((l) => l.id === id);
-    if (!lead) return fail("Заявка не найдена", 404);
+    try {
+      const leads = await loadLeads();
+      const lead = leads.find((l) => l.id === id);
+      if (!lead) return fail("Заявка не найдена", 404);
 
-    const updated: Lead = { ...lead, status, updatedAt: new Date().toISOString() };
-    await saveLeads(leads.map((l) => (l.id === id ? updated : l)));
-    return ok(updated);
+      const updated: Lead = { ...lead, status, updatedAt: new Date().toISOString() };
+      await saveLeads(leads.map((l) => (l.id === id ? updated : l)));
+      return ok(updated);
+    } catch (error: unknown) {
+      return storageFail(error);
+    }
   });
 }

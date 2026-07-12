@@ -55,8 +55,8 @@ export function ComplianceBlock({ flags }: ComplianceBlockProps) {
               <p className="mt-1.5 text-sm text-ink-soft">{flag.detail}</p>
               {flag.loans.length > 0 && (
                 <ul className="mt-2 space-y-1">
-                  {flag.loans.map((loan) => (
-                    <li key={loan} className="flex items-start gap-2 text-sm font-medium">
+                  {flag.loans.map((loan, i) => (
+                    <li key={`${i}-${loan}`} className="flex items-start gap-2 text-sm font-medium">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warn" />
                       {loan}
                     </li>

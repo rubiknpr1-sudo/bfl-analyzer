@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LEAD_STATUSES, type Lead, type LeadStatus } from "@/lib/leads";
 import type { HistoryEntry } from "@/lib/history";
 import { fmtMoney } from "@/lib/format";
@@ -38,12 +38,18 @@ function fmtWhen(iso: string): string {
 export function LeadsBoard({ refreshKey, localHistory, onOpenReport }: LeadsBoardProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // Монотонный счётчик запросов: устаревший GET не должен
+  // перезаписать более свежий стейт (в т.ч. optimistic-обновления)
+  const seqRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++seqRef.current;
     try {
       const res = await fetch("/api/leads");
       const body = (await res.json()) as ApiResponse<Lead[]>;
-      if (body.success && body.data) setLeads(body.data);
+      if (body.success && body.data && seq === seqRef.current) {
+        setLeads(body.data);
+      }
     } catch {
       // сервер недоступен — доска просто не обновится
     } finally {
@@ -58,6 +64,8 @@ export function LeadsBoard({ refreshKey, localHistory, onOpenReport }: LeadsBoar
   const setStatus = useCallback(
     async (id: string, status: LeadStatus) => {
       setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+      // Оптимистичное обновление актуальнее любого GET в полёте
+      seqRef.current += 1;
       try {
         await fetch("/api/leads", {
           method: "PATCH",

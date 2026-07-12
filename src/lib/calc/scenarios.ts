@@ -79,14 +79,19 @@ export interface Analysis {
   bflPaybackMonths: number | null;
 }
 
-function monthsToRepay(debt: number, payment: number, monthlyRate: number): number {
+/** Точное (дробное) число месяцев до погашения; MAX_MONTHS = «не гасится» */
+function exactMonthsToRepay(
+  debt: number,
+  payment: number,
+  monthlyRate: number,
+): number {
   if (debt <= 0) return 0;
   if (payment <= 0) return MAX_MONTHS;
-  if (monthlyRate <= 0) return Math.ceil(debt / payment);
+  if (monthlyRate <= 0) return debt / payment;
   const interestOnly = debt * monthlyRate;
   if (payment <= interestOnly) return MAX_MONTHS;
   const n = -Math.log(1 - (monthlyRate * debt) / payment) / Math.log(1 + monthlyRate);
-  return Math.min(MAX_MONTHS, Math.ceil(n));
+  return Math.min(MAX_MONTHS, n);
 }
 
 /** Аннуитетный платёж по долгу, ставке и сроку */
@@ -121,7 +126,9 @@ export function projectLoan(
 
   if (payment <= interestOnly && debt > 0) {
     estimated = true;
-    if (loan.plannedEndDate && reportDate) {
+    // Срок договора применим, только если плановая дата ещё впереди —
+    // у клиента в дефолте она в прошлом, и аннуитет на 1 месяц = абсурдный платёж
+    if (loan.plannedEndDate && reportDate && loan.plannedEndDate > reportDate) {
       const term = monthsBetween(reportDate, loan.plannedEndDate);
       payment = annuityPayment(debt, monthlyRate, term);
     } else {
@@ -133,9 +140,11 @@ export function projectLoan(
     payment = Math.max(payment, Math.min(debt, MIN_ABS_PAYMENT));
   }
 
-  const monthsLeft = monthsToRepay(debt, payment, monthlyRate);
+  const exactMonths = exactMonthsToRepay(debt, payment, monthlyRate);
+  const monthsLeft = Math.min(MAX_MONTHS, Math.ceil(exactMonths));
   const paymentTooSmall = monthsLeft >= MAX_MONTHS && debt > 0;
-  const totalToPay = debt > 0 ? payment * monthsLeft : 0;
+  // Последний месяц — частичный: платим по точному сроку, не по округлённому
+  const totalToPay = debt > 0 ? payment * exactMonths : 0;
 
   return {
     loan,

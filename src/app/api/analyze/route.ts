@@ -98,6 +98,17 @@ export async function POST(request: Request): Promise<Response> {
         422,
       );
     }
+    // Сводка говорит «кредиты есть», а разбор пуст — структура не распознана,
+    // молча отдавать пустой отчёт нельзя
+    if (
+      report.loans.length === 0 &&
+      (report.summary.activeLoansCount ?? 0) > 0
+    ) {
+      return fail(
+        "Отчёт распознан частично: сводка есть, но блоки кредитов разобрать не удалось. Сообщите разработчику.",
+        422,
+      );
+    }
 
     const body: ApiResponse<CreditReport> = { success: true, data: report };
     // Отчёт нигде не сохраняется: анализ в памяти, PII не пишется на диск

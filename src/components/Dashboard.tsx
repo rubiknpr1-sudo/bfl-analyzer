@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CreditReport } from "@/lib/parser/types";
 import {
   analyzeReport,
@@ -21,21 +21,41 @@ interface DashboardProps {
   onReset: () => void;
 }
 
+function copyToClipboard(text: string): boolean {
+  // navigator.clipboard отсутствует вне secure context (например, http по IP)
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text).catch(() => undefined);
+    return true;
+  }
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const okResult = document.execCommand("copy");
+    area.remove();
+    return okResult;
+  } catch {
+    return false;
+  }
+}
+
 function CopyButton({ text, wide }: { text: string; wide?: boolean }) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1600);
-    return () => clearTimeout(timer);
-  }, [copied]);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   return (
     <button
       type="button"
       onClick={() => {
-        void navigator.clipboard.writeText(text);
+        if (!copyToClipboard(text)) return;
         setCopied(true);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 1600);
       }}
       className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
         copied

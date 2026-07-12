@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CreditReport } from "@/lib/parser/types";
 import { analyzeReport, DEFAULT_SETTINGS } from "@/lib/calc/scenarios";
 import { checkCompliance } from "@/lib/calc/compliance";
@@ -22,14 +22,20 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [manager, setManager] = useState("");
   const [leadsVersion, setLeadsVersion] = useState(0);
+  // Имя читаем через ref в момент отправки заявки: PDF парсится секунды,
+  // и имя, введённое во время разбора, не должно теряться в старом замыкании
+  const managerRef = useRef("");
 
   useEffect(() => {
     setHistory(loadHistory());
-    setManager(window.localStorage.getItem(MANAGER_KEY) ?? "");
+    const saved = window.localStorage.getItem(MANAGER_KEY) ?? "";
+    setManager(saved);
+    managerRef.current = saved;
   }, []);
 
   const handleManager = useCallback((value: string) => {
     setManager(value);
+    managerRef.current = value;
     window.localStorage.setItem(MANAGER_KEY, value);
   }, []);
 
@@ -43,7 +49,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          manager: manager.trim() || "Не указан",
+          manager: managerRef.current.trim() || "Не указан",
           client: parsed.client.name,
           debt: analysis.bank.totalDebtNow,
           toPay: analysis.bank.totalToPay,
@@ -52,7 +58,7 @@ export default function Home() {
         }),
       }).finally(() => setLeadsVersion((v) => v + 1));
     },
-    [manager],
+    [],
   );
 
   const handleClear = useCallback(() => {
@@ -68,7 +74,7 @@ export default function Home() {
             <p className="text-sm font-extrabold uppercase tracking-widest text-accent">
               БФЛ Аналитик
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3">
               <label
                 className="flex items-center gap-2 text-xs font-semibold text-muted"
                 title="Имя подставится в заявку — по нему считается статистика менеджеров"
