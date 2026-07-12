@@ -10,8 +10,8 @@ interface LoansTableProps {
 }
 
 /** Мини-график динамики долга из истории в отчёте */
-function DebtSparkline({ history }: { history: { date: string; total: number }[] }) {
-  if (history.length < 3) return null;
+function DebtSparkline({ history }: { history?: { date: string; total: number }[] }) {
+  if (!history || history.length < 3) return null;
   const width = 120;
   const height = 30;
   const max = Math.max(...history.map((h) => h.total), 1);

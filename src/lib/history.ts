@@ -19,13 +19,32 @@ export interface HistoryEntry {
 const STORAGE_KEY = "bfl-history";
 const MAX_ENTRIES = 20;
 
+/** Записи старых версий приложения могут не иметь новых полей Loan — доливаем дефолты */
+function migrateEntry(entry: HistoryEntry): HistoryEntry {
+  return {
+    ...entry,
+    report: {
+      ...entry.report,
+      closedLoans: entry.report.closedLoans ?? [],
+      loans: (entry.report.loans ?? []).map((l) => ({
+        ...l,
+        payments: l.payments ?? [],
+        isCreditCard: l.isCreditCard ?? false,
+        debtHistory: l.debtHistory ?? [],
+      })),
+    },
+  };
+}
+
 export function loadHistory(): HistoryEntry[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw === null) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as HistoryEntry[];
+    return (parsed as HistoryEntry[])
+      .filter((e) => e && e.report && Array.isArray(e.report.loans))
+      .map(migrateEntry);
   } catch {
     return [];
   }
