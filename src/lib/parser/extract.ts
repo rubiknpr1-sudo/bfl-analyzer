@@ -5,6 +5,10 @@ type TextItem = { str: string; x: number; y: number; w: number };
 const Y_TOLERANCE = 3;
 const COLUMN_GAP_PT = 8;
 const PT_PER_SPACE = 4;
+// Защита от PDF-бомб: реальные отчёты — 30–60 страниц
+const MAX_PAGES = 200;
+const MAX_TOTAL_CHARS = 2_000_000;
+const EXTRACT_TIMEOUT_MS = 30_000;
 
 /**
  * Извлекает текст из PDF, восстанавливая строки и колонки по координатам:
@@ -13,8 +17,30 @@ const PT_PER_SPACE = 4;
  */
 export async function extractPdfLines(data: Uint8Array): Promise<string[]> {
   const loadingTask = getDocument({ data });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      void loadingTask.destroy();
+      reject(new Error("PDF слишком сложный: превышен лимит времени разбора"));
+    }, EXTRACT_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([extractAllPages(loadingTask), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function extractAllPages(
+  loadingTask: ReturnType<typeof getDocument>,
+): Promise<string[]> {
   const doc = await loadingTask.promise;
+  if (doc.numPages > MAX_PAGES) {
+    await loadingTask.destroy();
+    throw new Error(`PDF больше ${MAX_PAGES} страниц — это не похоже на кредитный отчёт`);
+  }
   const lines: string[] = [];
+  let totalChars = 0;
 
   for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
     const page = await doc.getPage(pageNum);
@@ -58,8 +84,13 @@ export async function extractPdfLines(data: Uint8Array): Promise<string[]> {
         cursorX = item.x + item.w;
       }
       lines.push(line);
+      totalChars += line.length;
     }
     lines.push("\f");
+    if (totalChars > MAX_TOTAL_CHARS) {
+      await loadingTask.destroy();
+      throw new Error("PDF содержит аномально много текста — разбор остановлен");
+    }
   }
 
   await loadingTask.destroy();

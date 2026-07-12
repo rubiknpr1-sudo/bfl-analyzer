@@ -1,12 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CreditReport } from "@/lib/parser/types";
+import { analyzeReport, DEFAULT_SETTINGS } from "@/lib/calc/scenarios";
+import { checkCompliance } from "@/lib/calc/compliance";
+import {
+  clearHistory,
+  loadHistory,
+  saveToHistory,
+  type HistoryEntry,
+} from "@/lib/history";
 import { UploadZone } from "@/components/UploadZone";
 import { Dashboard } from "@/components/Dashboard";
+import { RecentClients } from "@/components/RecentClients";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export default function Home() {
   const [report, setReport] = useState<CreditReport | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const handleParsed = useCallback((parsed: CreditReport) => {
+    const analysis = analyzeReport(parsed, DEFAULT_SETTINGS);
+    const flags = checkCompliance(parsed);
+    setHistory(saveToHistory(parsed, analysis, flags.length));
+    setReport(parsed);
+  }, []);
+
+  const handleClear = useCallback(() => {
+    clearHistory();
+    setHistory([]);
+  }, []);
 
   return (
     <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-8">
@@ -27,7 +54,7 @@ export default function Home() {
             compliance-риски для юриста.
           </p>
           <div className="mt-8">
-            <UploadZone onParsed={setReport} />
+            <UploadZone onParsed={handleParsed} />
           </div>
           <ul className="mt-8 grid gap-3 text-sm text-muted sm:grid-cols-3">
             <li className="flex items-start gap-2">
@@ -43,10 +70,17 @@ export default function Home() {
               платежа, серии займов
             </li>
           </ul>
+
+          <RecentClients
+            entries={history}
+            onOpen={(entry) => setReport(entry.report)}
+            onClear={handleClear}
+          />
         </div>
       ) : (
         <Dashboard report={report} onReset={() => setReport(null)} />
       )}
+      <ThemeSwitcher />
     </main>
   );
 }

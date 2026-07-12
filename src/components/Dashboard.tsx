@@ -174,9 +174,17 @@ export function Dashboard({ report, onReset }: DashboardProps) {
                 {talkingPoints.map((point) => (
                   <li
                     key={point}
-                    className="rounded-xl bg-white/80 px-3.5 py-3 text-sm leading-relaxed text-ink-soft"
+                    className="group relative rounded-xl chip px-3.5 py-3 text-sm leading-relaxed text-ink-soft"
                   >
                     {point}
+                    <button
+                      type="button"
+                      onClick={() => void navigator.clipboard.writeText(point)}
+                      title="Скопировать фразу"
+                      className="absolute right-2 top-2 rounded-md border border-line bg-surface px-2 py-0.5 text-[10px] font-bold text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-accent"
+                    >
+                      копировать
+                    </button>
                   </li>
                 ))}
               </ul>

@@ -31,7 +31,7 @@ export function ComplianceBlock({ flags }: ComplianceBlockProps) {
       </div>
 
       {flags.length === 0 ? (
-        <p className="mt-5 rounded-xl bg-white/70 px-4 py-3 text-sm font-medium text-ink-soft">
+        <p className="mt-5 rounded-xl chip px-4 py-3 text-sm font-medium text-ink-soft">
           Рисковых паттернов не найдено: по всем действующим кредитам есть
           история платежей, серий одновременных кредитов нет.
         </p>
@@ -40,7 +40,7 @@ export function ComplianceBlock({ flags }: ComplianceBlockProps) {
           {flags.map((flag) => (
             <li
               key={flag.title}
-              className="rounded-xl border border-warn/25 bg-white/80 p-4"
+              className="rounded-xl border border-warn/25 chip p-4"
             >
               <div className="flex items-center gap-2">
                 <span

@@ -17,6 +17,48 @@
   --accent-soft: #e9eefc;
 }
 
+/* Тема «Нуар» — тёмный premium-графит */
+:root[data-theme="noir"] {
+  --background: #0f1216;
+  --surface: #171c23;
+  --foreground: #e9ecf2;
+  --muted: #8b93a3;
+  --line: #262d38;
+  --ink-soft: #b6bdcb;
+  --good: #3ddc97;
+  --good-soft: rgba(61, 220, 151, 0.12);
+  --bad: #ff6b5e;
+  --bad-soft: rgba(255, 107, 94, 0.12);
+  --warn: #f5b544;
+  --warn-soft: rgba(245, 181, 68, 0.1);
+  --accent: #6ea2ff;
+  --accent-soft: rgba(110, 162, 255, 0.14);
+  --chip: rgba(255, 255, 255, 0.06);
+}
+
+/* Тема «Издание» — светлый editorial с жёсткими рамками */
+:root[data-theme="editorial"] {
+  --background: #ffffff;
+  --surface: #ffffff;
+  --foreground: #0b0b0d;
+  --muted: #5a5a60;
+  --line: #0b0b0d;
+  --ink-soft: #2c2c31;
+  --good: #0a7f3f;
+  --good-soft: #e4f4ea;
+  --bad: #d92d20;
+  --bad-soft: #fdebe9;
+  --warn: #9a5b00;
+  --warn-soft: #fcf1df;
+  --accent: #2f45ff;
+  --accent-soft: #e9ecff;
+  --chip: #f4f4f0;
+}
+
+:root {
+  --chip: rgba(255, 255, 255, 0.8);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -44,4 +86,9 @@ body {
 
 ::selection {
   background: var(--accent-soft);
+}
+
+/* Подложка чипов внутри цветных блоков — тем-независимая */
+.chip {
+  background: var(--chip);
 }
